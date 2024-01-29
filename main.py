@@ -13,11 +13,13 @@ from googleapiclient.errors import HttpError
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/documents']
 
+#url = "https://docs.google.com/document/d/1f20VlAx5Q--cghl-bYH5rNrdfQ8cWj4OOo8CkggWlOI/edit"
+
 # The ID of a sample document.
-DOCUMENT_ID = '1-2iLebNJBiSvFSYyZdiSdZnKyGNCcHwzJTs7W1N_hMw'
+DOCUMENT_ID = '1_q_19SXLjNLUSANszj2yC8b1SOMUU7WWYksLR4V_2XE'
 
 
-def writeToNewWords(id, text):
+def writeToDoc(id, text):
     """Shows basic usage of the Docs API.
     Prints the title of a sample document.
     """
@@ -25,18 +27,18 @@ def writeToNewWords(id, text):
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    if os.path.exists('data/token.json'):
+        creds = Credentials.from_authorized_user_file('data/token.json', SCOPES)
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
+                'data/credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
-        with open('token.json', 'w') as token:
+        with open('data/token.json', 'w') as token:
             token.write(creds.to_json())
 
     try:
@@ -71,10 +73,14 @@ def writeToNewWords(id, text):
 
 
 # if __name__ == '__main__':
-    # writeToNewWords(DOCUMENT_ID)
+    # writeToDoc(DOCUMENT_ID)
 
 
 
+
+
+if __name__ == '__main__':
+    writeToDoc(DOCUMENT_ID, "Hello this is a manual write")
 
 
 
@@ -107,18 +113,18 @@ from sys import platform
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model",
-        default="large",
+        default="large-v3",
         #default="mhttps://github.com/davabase/whisper_real_timeedium",
         help="Model to use",
                         choices=["tiny", "base", "small", "medium", "large"])
-    parser.add_argument("--non_english", action='store_true',
+    parser.add_argument("--non_english", action='store_false',
                         help="Don't use the english model.")
-    parser.add_argument("--language", default="Norwegian", type=str)
+    parser.add_argument("--language", default="no", type=str)
     parser.add_argument("--energy_threshold", default=1000,
                         help="Energy level for mic to detect.", type=int)
     parser.add_argument("--record_timeout", default=2,
                         help="How real time the recording is in seconds.", type=float)
-    parser.add_argument("--phrase_timeout", default=3,
+    parser.add_argument("--phrase_timeout", default=10,
                         help="How much empty space between recordings before we "
                              "consider it a new line in the transcription.", type=float)
     if 'linux' in platform:
@@ -126,6 +132,9 @@ def main():
                             help="Default microphone name for SpeechRecognition. "
                                  "Run this with 'list' to view available Microphones.", type=str)
     args = parser.parse_args()
+    
+    print("args")
+    print(args)
 
     # The last time a recording was retrieved from the queue.
     phrase_time = None
@@ -160,6 +169,8 @@ def main():
     model = args.model
     if args.model != "large" and not args.non_english:
         model = model + ".en"
+    
+    print("loading model " + model)
     audio_model = whisper.load_model(model)
 
     record_timeout = args.record_timeout
@@ -194,11 +205,14 @@ def main():
             now = datetime.utcnow()
             # Pull raw recorded audio from the queue.
             if not data_queue.empty():
+                print("tick")
+                
                 phrase_complete = False
                 # If enough time has passed between recordings, consider the phrase complete.
                 # Clear the current working audio buffer to start over with the new data.
                 if phrase_time and now - phrase_time > timedelta(seconds=phrase_timeout):
-                    last_sample = bytes()
+                    # never clear sample
+                    # last_sample = bytes()
                     phrase_complete = True
                 # This is the last time we received new audio data from the queue.
                 phrase_time = now
@@ -217,7 +231,7 @@ def main():
                     f.write(wav_data.read())
 
                 # Read the transcription.
-                result = audio_model.transcribe(temp_file, fp16=torch.cuda.is_available())
+                result = audio_model.transcribe(temp_file, fp16=torch.cuda.is_available(), language="no")
                 text = result['text'].strip()
 
                 # If we detected a pause between recordings, add a new item to our transcription.
@@ -227,10 +241,10 @@ def main():
                 else:
                     transcription[-1] = text
                 
-                # writeToNewWords(DOCUMENT_ID, text + '\n')
+                # writeToDoc(DOCUMENT_ID, text + '\n')
                 
                 # Clear the console to reprint the updated transcription.
-                os.system('cls' if os.name=='nt' else 'clear')
+                #os.system('cls' if os.name=='nt' else 'clear')
                 
                 for line in transcription:
                     print(line)
@@ -239,7 +253,7 @@ def main():
                 # for line in transcription:
                 #     allText += line + "\n"
                 
-                # writeToNewWords(DOCUMENT_ID, allText)
+                # writeToDoc(DOCUMENT_ID, allText)
                 
                 allText = ""
                 transIndex = len(transcription) - 2
@@ -247,15 +261,15 @@ def main():
                     index += 1
                     allText += transcription[transIndex] + "\n"
                 if (allText != ""):
-                    writeToNewWords(DOCUMENT_ID, allText)
+                    writeToDoc(DOCUMENT_ID, allText)
                     
                 
                 
                 # Flush stdout.
-                print('', end='', flush=True)
+                #print('', end='', flush=True)
 
                 # Infinite loops are bad for processors, must sleep.
-                sleep(0.25)
+                sleep(3)
         except KeyboardInterrupt:
             break
 
