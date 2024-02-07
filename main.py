@@ -20,6 +20,8 @@ DOCUMENT_ID = '1_q_19SXLjNLUSANszj2yC8b1SOMUU7WWYksLR4V_2XE'
 
 
 def writeToDoc(id, text):
+    if 1 == 1:
+        return
     """Shows basic usage of the Docs API.
     Prints the title of a sample document.
     """
